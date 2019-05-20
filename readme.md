@@ -24,16 +24,15 @@
 >上传：  
 ```Java
 AvocadoUtils.builder().host("localhost")
-                .port(6666)
-                .build().uploadFile(new File("upload.jpg"));
+    .port(6666)
+    .build().uploadFile(new File("upload.jpg"));
 ```
 >下载： 
 ```Java
 AvocadoUtils.builder()
-                .host("localhost")
-                .port(6666)
-                .build().downloadFile("path/to/download.jpg", new File("path/to/upload.jpg"));
-
+    .host("localhost")
+    .port(6666)
+    .build().downloadFile("path/to/download.jpg", new File("path/to/upload.jpg"));
 ``` 
 
 ---
