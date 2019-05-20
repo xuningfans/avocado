@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <parent>
+        <artifactId>avocado</artifactId>
+        <groupId>com.avocado</groupId>
+        <version>0.0.1-SNAPSHOT</version>
+    </parent>
+    <modelVersion>4.0.0</modelVersion>
+
+    <artifactId>assembly</artifactId>
+    <packaging>pom</packaging>
+    <dependencies>
+        <dependency>
+            <groupId>com.avocado</groupId>
+            <artifactId>tracker</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.avocado</groupId>
+            <artifactId>worker</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+    </dependencies>
+    <build>
+        <finalName>package</finalName>
+        <plugins>
+            <plugin>
+                <artifactId>maven-antrun-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <phase>package</phase>
+                        <configuration>
+                            <target>
+                                <copy todir="${project.build.directory}/worker" overwrite="true"
+                                      includeEmptyDirs="true">
+                                    <fileset dir="../worker/target/worker">
+                                        <include name="**"/>
+                                    </fileset>
+                                </copy>
+                                <zip destfile="${project.build.directory}/worker.zip"
+                                     basedir="${project.build.directory}/worker"
+                                     includes="**"/>
+
+                                <copy todir="${project.build.directory}/tracker" overwrite="true"
+                                      includeEmptyDirs="true">
+                                    <fileset dir="../tracker/target/tracker">
+                                        <include name="**"/>
+                                    </fileset>
+                                </copy>
+                                <zip destfile="${project.build.directory}/tracker.zip"
+                                     basedir="${project.build.directory}/tracker"
+                                     includes="**"/>
+                            </target>
+                        </configuration>
+                        <goals>
+                            <goal>run</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+
+        </plugins>
+    </build>
+</project>

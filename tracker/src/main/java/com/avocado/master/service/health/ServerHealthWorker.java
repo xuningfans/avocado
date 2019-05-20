@@ -18,7 +18,8 @@ import static com.avocado.common.constants.Constants.BYE_STR;
 import static com.avocado.common.constants.Constants.OK_STR;
 
 /**
- * ServerHealthExecuter class
+ * ServerHealthWorker
+ * class
  *
  * @author xuning
  * @date 2019-05-07 09:48
