@@ -1,6 +1,7 @@
 package com.avocado.master.service.health;
 
 import lombok.Data;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import javax.annotation.PostConstruct;
@@ -22,13 +23,13 @@ public class ServerHealthStater {
     @Resource
     private ServerHealthWorker serverHealthWorker;
 
-
+    @Value("${tracker.health.port}")
+    private Integer trackerHealthPort;
 
     @PostConstruct
     public void init() throws IOException {
         Runtime.getRuntime().addShutdownHook(new Thread(() -> serverHealthWorker.setFlag(false)));
-        //服务端在20006端口监听客户端请求的TCP连接
-        final ServerSocket server = new ServerSocket(20006);
+        final ServerSocket server = new ServerSocket(trackerHealthPort);
         serverHealthWorker.execute(server);
     }
 

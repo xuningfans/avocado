@@ -1,6 +1,7 @@
 package com.avocado.slave.service.upload;
 
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import javax.annotation.PostConstruct;
@@ -21,10 +22,13 @@ public class StorageStater {
     @Resource
     private StorageWorker storageWorker;
 
+    @Value("${worker.port}")
+    private Integer port;
+
     @PostConstruct
     public void init() throws IOException {
         Runtime.getRuntime().addShutdownHook(new Thread(() -> storageWorker.setFlag(false)));
-        final ServerSocket server = new ServerSocket(9991);
+        final ServerSocket server = new ServerSocket(port);
         storageWorker.executeServer(server);
     }
 

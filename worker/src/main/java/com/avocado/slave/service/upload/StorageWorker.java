@@ -9,7 +9,6 @@ import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.context.annotation.PropertySource;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 
@@ -34,7 +33,6 @@ import static com.avocado.common.constants.Constants.BUFFER_LENGTH;
  */
 @Slf4j
 @Component
-@PropertySource("classpath:file.properties")
 public class StorageWorker {
 
     @Setter
@@ -43,7 +41,7 @@ public class StorageWorker {
     private String fileBakPath;
     private static final boolean DEBUG_ENABLED = log.isDebugEnabled();
 
-    @Value("${file.path}")
+    @Value("${file-save.path}")
     public void setFileSavePath(String fileSavePath) {
         this.fileSavePath = fileSavePath.endsWith("/") ? fileSavePath : fileSavePath + "/";
     }

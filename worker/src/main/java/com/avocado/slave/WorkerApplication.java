@@ -3,6 +3,7 @@ package com.avocado.slave;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.context.annotation.PropertySource;
 import org.springframework.scheduling.annotation.EnableAsync;
 
 /**
@@ -14,6 +15,7 @@ import org.springframework.scheduling.annotation.EnableAsync;
 @Slf4j
 @EnableAsync
 @SpringBootApplication
+@PropertySource("classpath:avocado.properties")
 public class WorkerApplication {
 
     public static void main(String[] args) {

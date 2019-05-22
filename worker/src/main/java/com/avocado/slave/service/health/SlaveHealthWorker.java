@@ -4,6 +4,7 @@ import com.avocado.common.utils.IOUtils;
 import com.avocado.common.utils.ThreadUtils;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 
@@ -31,10 +32,16 @@ public class SlaveHealthWorker implements Closeable {
     @Setter
     private volatile boolean flag = true;
 
+    @Value("${tracker.health.host}")
+    private String trackerHealthHost;
+
+    @Value("${tracker.health.port}")
+    private Integer trackerHealthPort;
+
     @PostConstruct
     public void connect() {
         try {
-            clientKeepAlive = new Socket("127.0.0.1", 20006);
+            clientKeepAlive = new Socket(trackerHealthHost, trackerHealthPort);
             printStream = new PrintStream(clientKeepAlive.getOutputStream());
             bufferedReader = new BufferedReader(new InputStreamReader(clientKeepAlive.getInputStream()));
         } catch (IOException e) {
