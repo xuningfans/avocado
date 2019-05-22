@@ -4,6 +4,8 @@ import lombok.experimental.UtilityClass;
 
 import java.io.IOException;
 
+import static com.avocado.common.constants.Constants.ERROR;
+
 /**
  * ClientUtils class
  *
@@ -12,8 +14,10 @@ import java.io.IOException;
  */
 @UtilityClass
 public class ClientUtils {
+
+
     public void checkResponse(String message) throws IOException {
-        if (message.startsWith("error")) {
+        if (message.startsWith(ERROR)) {
             throw new IOException("server response error:" + message);
         }
     }

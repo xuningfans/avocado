@@ -28,6 +28,7 @@ public class StorageServerClient implements Closeable {
         this.host = host;
         this.port = port;
         socketClient = new SocketClient(host, port);
+        socketClient.open();
     }
 
     public String upload(FileMeta fileMeta, InputStream inputStream) throws IOException {

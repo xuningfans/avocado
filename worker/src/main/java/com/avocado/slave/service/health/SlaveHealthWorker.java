@@ -21,7 +21,7 @@ import java.net.Socket;
 @Component
 public class SlaveHealthWorker implements Closeable {
 
-    private static final boolean DEBUG_ENABLED = log.isDebugEnabled();
+    private static final boolean TRACE_ENABLED = log.isTraceEnabled();
     private Socket clientKeepAlive;
 
     private PrintStream printStream;
@@ -46,6 +46,11 @@ public class SlaveHealthWorker implements Closeable {
     public void execute() {
         File file = new File(".");
         while (flag) {
+            if (clientKeepAlive == null || !clientKeepAlive.isConnected()) {
+                log.warn("Waiting for connect to server");
+                ThreadUtils.sleep(1000 * 10);
+                continue;
+            }
             try {
                 long usableSpaceByte = file.getUsableSpace();
                 double usableSpace = usableSpaceByte / 1024f / 1024 / 1024;
@@ -53,10 +58,10 @@ public class SlaveHealthWorker implements Closeable {
                 String format = String.format("%.2f", usableSpace);
                 // language=JSON
                 printStream.println("{\"usableSpace\": " + format + "}");
-                Thread.sleep(5000);
+                Thread.sleep(1000 * 30);
                 String echo = bufferedReader.readLine();
-                if (DEBUG_ENABLED) {
-                    log.debug("Received server response: {}", echo);
+                if (TRACE_ENABLED) {
+                    log.trace("Received server response: {}", echo);
                 }
             } catch (IOException e) {
                 log.error("connection exception, reconnecting... , cause {}", e.getMessage());

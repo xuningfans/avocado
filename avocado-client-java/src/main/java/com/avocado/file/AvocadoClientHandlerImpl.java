@@ -27,11 +27,15 @@ public class AvocadoClientHandlerImpl implements AvocadoClientHandler {
     public FileMeta upload(InputStream inputStream, String fileName, Long fileSize) throws Exception {
         StorageServerClient storageServerClient = null;
         try (TrackerServerClient trackerServerClient = new TrackerServerClient(host, port)) {
-            FileMeta uploadServer = trackerServerClient.getUploadInfo(fileName);
+            trackerServerClient.open();
+            FileMeta uploadServer = trackerServerClient.getUploadInfo(fileName, fileSize);
             uploadServer.setSize(fileSize);
             storageServerClient = new StorageServerClient(uploadServer.getStorageServerHost(), uploadServer.getStorageServerPort());
             String checksum = storageServerClient.upload(uploadServer, inputStream);
             uploadServer.setChecksum(checksum);
+            // 更新数据库中checksum（非长连接，重新连接）
+            trackerServerClient.open();
+            trackerServerClient.updateChecksum(uploadServer.getId(), checksum);
             return uploadServer;
         } finally {
             if (storageServerClient != null) {
@@ -45,6 +49,7 @@ public class AvocadoClientHandlerImpl implements AvocadoClientHandler {
     public FileMeta downloadById(OutputStream outputStream, String fileId) throws Exception {
         StorageServerClient storageServerClient = null;
         try (TrackerServerClient trackerServerClient = new TrackerServerClient(host, port)) {
+            trackerServerClient.open();
             FileMeta fileMeta = trackerServerClient.getFileMetaInfo(fileId, null);
             storageServerClient = new StorageServerClient(fileMeta.getStorageServerHost(), fileMeta.getStorageServerPort());
             storageServerClient.download(fileMeta, outputStream);
@@ -61,6 +66,7 @@ public class AvocadoClientHandlerImpl implements AvocadoClientHandler {
     public FileMeta downloadByPath(OutputStream outputStream, String filePath) throws Exception {
         StorageServerClient storageServerClient = null;
         try (TrackerServerClient trackerServerClient = new TrackerServerClient(host, port)) {
+            trackerServerClient.open();
             FileMeta fileMeta = trackerServerClient.getFileMetaInfo(null, filePath);
             storageServerClient = new StorageServerClient(fileMeta.getStorageServerHost(), fileMeta.getStorageServerPort());
             storageServerClient.download(fileMeta, outputStream);

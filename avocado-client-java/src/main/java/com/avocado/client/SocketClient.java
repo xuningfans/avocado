@@ -14,19 +14,22 @@ import java.net.Socket;
  */
 @Getter
 @ToString
-public class SocketClient implements Closeable{
+public class SocketClient implements Closeable {
 
     protected final String host;
     protected final Integer port;
-    protected final Socket socket;
-    protected final InputStream socketInputStream;
-    protected final BufferedReader bufferedReader;
-    protected final OutputStream socketOutputStream;
-    protected final PrintStream printStream;
+    protected Socket socket;
+    protected InputStream socketInputStream;
+    protected BufferedReader bufferedReader;
+    protected OutputStream socketOutputStream;
+    protected PrintStream printStream;
 
-    public SocketClient(String host, Integer port) throws IOException {
+    public SocketClient(String host, Integer port) {
         this.host = host;
         this.port = port;
+    }
+
+    public void open() throws IOException {
         socket = new Socket(host, port);
         socketInputStream = socket.getInputStream();
         socketOutputStream = socket.getOutputStream();

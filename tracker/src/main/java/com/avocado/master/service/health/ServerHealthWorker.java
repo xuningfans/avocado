@@ -39,6 +39,7 @@ public class ServerHealthWorker {
      */
     @Async
     public void execute(ServerSocket server) throws IOException {
+        log.info("HealthServer listening at host:{}, port:{} ", server.getInetAddress().getHostAddress(), server.getLocalPort());
 
         while (flag) {
 
@@ -59,7 +60,7 @@ public class ServerHealthWorker {
 
                 }
             } catch (Exception e) {
-                e.printStackTrace();
+                log.error("Handle health error", e);
             }
         }
     }
