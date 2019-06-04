@@ -37,17 +37,35 @@ public class FileMetaEntity {
 
     private String checksum;
 
-    @Column(name = "storage_server_host")
-    private String storageServerHost;
+    @Column(name = "storage_server_host1")
+    private String storageServerHost1;
 
-    @Column(name = "storage_server_port")
-    private Integer storageServerPort;
+    @Column(name = "storage_server_port1")
+    private Integer storageServerPort1;
 
-    @Column(name = "backup_server_host")
-    private String backupServerHost;
+    @Column(name = "storage_server_host2")
+    private String storageServerHost2;
 
-    @Column(name = "backup_server_port")
-    private Integer backupServerPort;
+    @Column(name = "storage_server_port2")
+    private Integer storageServerPort2;
+
+    @Column(name = "storage_server_host3")
+    private String storageServerHost3;
+
+    @Column(name = "storage_server_port3")
+    private Integer storageServerPort3;
+
+    @Column(name = "storage_server_host4")
+    private String storageServerHost4;
+
+    @Column(name = "storage_server_port4")
+    private Integer storageServerPort4;
+
+    @Column(name = "storage_server_host5")
+    private String storageServerHost5;
+
+    @Column(name = "storage_server_port5")
+    private Integer storageServerPort5;
 
     @CreatedDate
     @Column(name = "created_date")

@@ -1,7 +1,10 @@
 package com.avocado.slave.service.health;
 
+import com.alibaba.fastjson.JSON;
+import com.avocado.common.dto.HealthMessage;
 import com.avocado.common.utils.IOUtils;
 import com.avocado.common.utils.ThreadUtils;
+import com.avocado.slave.service.upload.StorageWorker;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -9,6 +12,7 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 
 import javax.annotation.PostConstruct;
+import javax.annotation.Resource;
 import java.io.*;
 import java.net.Socket;
 
@@ -23,6 +27,7 @@ import java.net.Socket;
 public class SlaveHealthWorker implements Closeable {
 
     private static final boolean TRACE_ENABLED = log.isTraceEnabled();
+
     private Socket clientKeepAlive;
 
     private PrintStream printStream;
@@ -37,6 +42,12 @@ public class SlaveHealthWorker implements Closeable {
 
     @Value("${tracker.health.port}")
     private Integer trackerHealthPort;
+
+    @Value("${worker.port}")
+    private Integer workerPort;
+
+    @Resource
+    private StorageWorker storageWorker;
 
     @PostConstruct
     public void connect() {
@@ -60,24 +71,31 @@ public class SlaveHealthWorker implements Closeable {
             }
             try {
                 long usableSpaceByte = file.getUsableSpace();
-                double usableSpace = usableSpaceByte / 1024f / 1024 / 1024;
+//                double usableSpace = usableSpaceByte / 1024f / 1024 / 1024;
                 // send heath data to tracker
-                String format = String.format("%.2f", usableSpace);
-                // language=JSON
-                printStream.println("{\"usableSpace\": " + format + "}");
-                Thread.sleep(1000 * 30);
-                String echo = bufferedReader.readLine();
+//                String format = String.format("%.2f", usableSpace);
+
+                HealthMessage healthMessage = HealthMessage.builder()
+                        .usableSpace(usableSpaceByte)
+                        .workerPort(workerPort)
+                        .connectionCount(storageWorker.getConnectionCount())
+                        .build();
+                printStream.println(JSON.toJSONString(healthMessage));
+                String resp = bufferedReader.readLine();
                 if (TRACE_ENABLED) {
-                    log.trace("Received server response: {}", echo);
+                    log.trace("Received server response: {}", resp);
                 }
+                Thread.sleep(1000 * 30);
             } catch (IOException e) {
-                log.error("connection exception, reconnecting... , cause {}", e.getMessage());
+                log.error("Connection exception, reconnecting... , cause by: {}", e.getMessage());
                 // wait 10 sec
-                ThreadUtils.sleep(10000);
+                ThreadUtils.sleep(1000 * 10);
                 this.close();
                 this.connect();
             } catch (InterruptedException e) {
-                log.warn("sleep interrupted, cause {}", e.getMessage());
+                log.warn("Sleep interrupted, cause {}", e.getMessage());
+            } catch (Exception e) {
+                log.error("Unknown error,", e);
             }
         }
     }

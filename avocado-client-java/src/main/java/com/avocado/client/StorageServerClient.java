@@ -19,10 +19,11 @@ import java.io.*;
 public class StorageServerClient implements Closeable {
 
     protected SocketClient socketClient;
-
     protected String host;
-
     protected Integer port;
+
+    protected StorageServerClient() {
+    }
 
     public StorageServerClient(String host, int port) throws IOException {
         this.host = host;
@@ -35,33 +36,22 @@ public class StorageServerClient implements Closeable {
         return upload(fileMeta, inputStream, Constants.UPLOAD_STR);
     }
 
-    public String backup(FileMeta fileMeta, InputStream inputStream) throws IOException {
-        return upload(fileMeta, inputStream, Constants.BACKUP_STR);
-    }
-
-    public String upload(FileMeta fileMeta, InputStream inputStream, String operation) throws IOException {
+    protected String upload(FileMeta fileMeta, InputStream inputStream, String operation) throws IOException {
 
         // 1.发送操作握手信息，backup|upload
-        handshake(operation);
-        // 2.读取返回标记 'ok'
-        BufferedReader bufferedReader = socketClient.getBufferedReader();
-        String ok = bufferedReader.readLine();
-        ClientUtils.checkResponse(ok);
-        if (Constants.OK_STR.equals(ok)) {
-            // 3.发送文件元信息
-            handshake(JSON.toJSONString(fileMeta));
-            // 4.读取返回标记 'ok'
-            ok = bufferedReader.readLine();
-            ClientUtils.checkResponse(ok);
-            if (Constants.OK_STR.equals(ok)) {
-                // 5.开始上传
-                copyIn(inputStream);
-                // 6.读取返回文件信息
-                ok = bufferedReader.readLine();
-                ClientUtils.checkResponse(ok);
-            }
-        }
-        return ok;
+        handshake(operation, socketClient);
+        // 2.发送文件元信息
+        handshake(JSON.toJSONString(fileMeta), socketClient);
+        // 5.开始上传
+        copyIn(inputStream);
+        // 6.读取返回文件信息
+        return getResponseFileMeta();
+    }
+
+    protected String getResponseFileMeta() throws IOException {
+        String fileMetaStr = socketClient.getBufferedReader().readLine();
+        ClientUtils.checkResponse(fileMetaStr);
+        return fileMetaStr;
     }
 
     protected void copyIn(InputStream inputStream) throws IOException {
@@ -72,11 +62,14 @@ public class StorageServerClient implements Closeable {
         IOUtils.copy(socketClient.getSocketInputStream(), outputStream);
     }
 
-    protected void handshake(String message) {
-        // 发送消息
+    protected void handshake(String message, SocketClient socketClient) throws IOException {
+        // 1.发送操作握手信息，backup|upload
         PrintStream printStream = socketClient.getPrintStream();
         printStream.println(message);
         printStream.flush();
+        // 2.读取返回标记 'resp'
+        String resp = socketClient.getBufferedReader().readLine();
+        ClientUtils.checkResponse(resp);
     }
 
 
@@ -89,14 +82,14 @@ public class StorageServerClient implements Closeable {
 
     public void download(FileMeta fileMeta, OutputStream outputStream) throws IOException {
         // 1.发送操作握手信息，backup|upload
-        handshake(Constants.DOWNLOAD_STR);
+        handshake(Constants.DOWNLOAD_STR, socketClient);
         // 2.读取返回标记 'ok'
         BufferedReader bufferedReader = socketClient.getBufferedReader();
         String ok = bufferedReader.readLine();
         ClientUtils.checkResponse(ok);
         if (Constants.OK_STR.equals(ok)) {
             // 3.发送文件元信息
-            handshake(JSON.toJSONString(fileMeta));
+            handshake(JSON.toJSONString(fileMeta), socketClient);
             // 4.读取返回标记 'ok'
             ok = bufferedReader.readLine();
             ClientUtils.checkResponse(ok);

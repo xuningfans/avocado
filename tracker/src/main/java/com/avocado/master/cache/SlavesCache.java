@@ -1,5 +1,7 @@
 package com.avocado.master.cache;
 
+import com.alibaba.fastjson.JSONObject;
+import com.avocado.common.dto.HealthMessage;
 import lombok.extern.slf4j.Slf4j;
 import net.sf.ehcache.Ehcache;
 import net.sf.ehcache.Element;
@@ -45,15 +47,20 @@ public class SlavesCache {
         return cache.get(key, String.class);
     }
 
-    public Map<String, String> getAll() {
+    public Map<String, HealthMessage> getAll() {
         Ehcache nativeCache = ((EhCacheCache) cache).getNativeCache();
         List keys = nativeCache.getKeys();
         return nativeCache.getAll(keys)
                 .entrySet().stream()
                 .collect(Collectors.toMap(
                         e -> e.getKey().toString(),
-                        e -> e.getValue().getObjectValue().toString()
+                        e -> JSONObject.parseObject(e.getValue().toString(), HealthMessage.class)
                 ));
+    }
+
+    public int getSize() {
+        Ehcache nativeCache = ((EhCacheCache) cache).getNativeCache();
+        return nativeCache.getSize();
     }
 
 }

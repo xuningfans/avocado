@@ -3,6 +3,7 @@ package com.avocado.file;
 import com.avocado.client.StorageServerClient;
 import com.avocado.client.TrackerServerClient;
 import com.avocado.common.dto.file.FileMeta;
+import com.avocado.common.utils.ClientUtils;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -28,15 +29,17 @@ public class AvocadoClientHandlerImpl implements AvocadoClientHandler {
         StorageServerClient storageServerClient = null;
         try (TrackerServerClient trackerServerClient = new TrackerServerClient(host, port)) {
             trackerServerClient.open();
-            FileMeta uploadServer = trackerServerClient.getUploadInfo(fileName, fileSize);
-            uploadServer.setSize(fileSize);
-            storageServerClient = new StorageServerClient(uploadServer.getStorageServerHost(), uploadServer.getStorageServerPort());
-            String checksum = storageServerClient.upload(uploadServer, inputStream);
-            uploadServer.setChecksum(checksum);
+            FileMeta fileMeta = trackerServerClient.getUploadInfo(fileName, fileSize);
+            fileMeta.setSize(fileSize);
+
+            final String[] hosts = ClientUtils.checkAndGetServer(fileMeta, 0);
+            storageServerClient = new StorageServerClient(hosts[0], Integer.parseInt(hosts[1]));
+            String checksum = storageServerClient.upload(fileMeta, inputStream);
+            fileMeta.setChecksum(checksum);
             // 更新数据库中checksum（非长连接，重新连接）
             trackerServerClient.open();
-            trackerServerClient.updateChecksum(uploadServer.getId(), checksum);
-            return uploadServer;
+            trackerServerClient.updateChecksum(fileMeta.getId(), checksum);
+            return fileMeta;
         } finally {
             if (storageServerClient != null) {
                 storageServerClient.close();
@@ -45,13 +48,16 @@ public class AvocadoClientHandlerImpl implements AvocadoClientHandler {
 
     }
 
+
+
     @Override
     public FileMeta downloadById(OutputStream outputStream, String fileId) throws Exception {
         StorageServerClient storageServerClient = null;
         try (TrackerServerClient trackerServerClient = new TrackerServerClient(host, port)) {
             trackerServerClient.open();
             FileMeta fileMeta = trackerServerClient.getFileMetaInfo(fileId, null);
-            storageServerClient = new StorageServerClient(fileMeta.getStorageServerHost(), fileMeta.getStorageServerPort());
+            final String[] hosts = ClientUtils.checkAndGetServer(fileMeta, 0);
+            storageServerClient = new StorageServerClient(hosts[0], Integer.parseInt(hosts[1]));
             storageServerClient.download(fileMeta, outputStream);
             return fileMeta;
         } finally {
@@ -68,7 +74,9 @@ public class AvocadoClientHandlerImpl implements AvocadoClientHandler {
         try (TrackerServerClient trackerServerClient = new TrackerServerClient(host, port)) {
             trackerServerClient.open();
             FileMeta fileMeta = trackerServerClient.getFileMetaInfo(null, filePath);
-            storageServerClient = new StorageServerClient(fileMeta.getStorageServerHost(), fileMeta.getStorageServerPort());
+
+            final String[] hosts = ClientUtils.checkAndGetServer(fileMeta, 0);
+            storageServerClient = new StorageServerClient(hosts[0], Integer.parseInt(hosts[1]));
             storageServerClient.download(fileMeta, outputStream);
             return fileMeta;
         } finally {

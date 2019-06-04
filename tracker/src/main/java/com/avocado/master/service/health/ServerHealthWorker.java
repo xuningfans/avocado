@@ -1,6 +1,10 @@
 package com.avocado.master.service.health;
 
+import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson.JSONObject;
+import com.avocado.common.utils.IOUtils;
 import com.avocado.master.cache.SlavesCache;
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Async;
@@ -13,6 +17,7 @@ import java.io.InputStreamReader;
 import java.io.PrintStream;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.concurrent.*;
 
 import static com.avocado.common.constants.Constants.BYE_STR;
 import static com.avocado.common.constants.Constants.OK_STR;
@@ -41,27 +46,37 @@ public class ServerHealthWorker {
     public void execute(ServerSocket server) throws IOException {
         log.info("HealthServer listening at host:{}, port:{} ", server.getInetAddress().getHostAddress(), server.getLocalPort());
 
+
+        ThreadFactory namedThreadFactory = new ThreadFactoryBuilder().build();
+        ExecutorService pool = new ThreadPoolExecutor(5, 200,
+                0L, TimeUnit.MILLISECONDS,
+                new LinkedBlockingQueue<>(1024), namedThreadFactory, new ThreadPoolExecutor.AbortPolicy());
+
         while (flag) {
+            Socket client = server.accept();
+            pool.execute(() -> handleClient(client));
+        }
+    }
 
-            try (Socket client = server.accept();
-                 PrintStream out = new PrintStream(client.getOutputStream());
-                 BufferedReader buf = new BufferedReader(new InputStreamReader(client.getInputStream()))) {
-                //获取Socket的输出流，用来向客户端发送数据
-                //获取Socket的输入流，用来接收从客户端发送过来的数据
-                while (flag) {
-                    //接收从客户端发送过来的数据
-                    String str = buf.readLine();
-                    if (BYE_STR.equals(str)) {
-                        flag = false;
-                    } else {
-                        out.println(OK_STR);
-                        slavesCache.put(client.getInetAddress().getHostAddress(), str);
-                    }
+    private void handleClient(Socket client) {
+        try (PrintStream out = new PrintStream(client.getOutputStream());
+             BufferedReader buf = new BufferedReader(new InputStreamReader(client.getInputStream()))) {
+            while (flag) {
+                //接收从客户端发送过来的数据
+                String str = buf.readLine();
 
+                if (BYE_STR.equals(str)) {
+                    flag = false;
+                } else {
+                    out.println(OK_STR);
+                    final JSONObject jsonObject = JSON.parseObject(str);
+                    slavesCache.put(client.getInetAddress().getHostAddress() + ":" + jsonObject.get("workerPort"), str);
                 }
-            } catch (Exception e) {
-                log.error("Handle health error", e);
             }
+        } catch (IOException e) {
+            log.error("Handle health error", e);
+        } finally {
+            IOUtils.close(client);
         }
     }
 

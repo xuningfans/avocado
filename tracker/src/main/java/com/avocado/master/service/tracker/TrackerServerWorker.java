@@ -1,6 +1,7 @@
 package com.avocado.master.service.tracker;
 
 import com.alibaba.fastjson.JSONObject;
+import com.avocado.common.dto.HealthMessage;
 import com.avocado.common.dto.file.FileMeta;
 import com.avocado.common.utils.FileUtils;
 import com.avocado.common.utils.ThreadUtils;
@@ -10,6 +11,7 @@ import com.avocado.master.service.file.FileMetaService;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 
@@ -18,11 +20,10 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintStream;
+import java.lang.reflect.Field;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.util.Map;
-import java.util.Random;
-import java.util.UUID;
+import java.util.*;
 
 import static com.avocado.common.constants.Constants.*;
 
@@ -48,6 +49,9 @@ public class TrackerServerWorker {
     @Resource
     private FileMetaService fileMetaService;
 
+    @Value("${file.replication.count}")
+    private Integer fileReplicationCount;
+
     /**
      * 分发服务器
      */
@@ -56,9 +60,7 @@ public class TrackerServerWorker {
         log.info("TrackerServer listening at host:{}, port:{}", server.getInetAddress().getHostAddress(), server.getLocalPort());
 
         while (flag) {
-
-            Map<String, String> all = slavesCache.getAll();
-            if (all.size() == 0) {
+            if (slavesCache.getSize() == 0) {
                 log.warn("No StorageWorker found");
                 ThreadUtils.sleep(1000 * 10);
                 continue;
@@ -157,12 +159,10 @@ public class TrackerServerWorker {
             }
         }
 
-//        return JSONObject.parseObject("{\"backupServerHost\":\"127.0.0.1\",\"backupServerPort\":9991,\"id\":\"ab6dda6f4987414389182424717351e0\",\"name\":\"SKMBT_C36017032800060_0001 (1).jpg\",\"path\":\"/2019/05/17/20190517151410_239.jpg\",\"size\":698473,\"storageServerHost\":\"127.0.0.1\",\"storageServerPort\":9991}", FileMeta.class);
         return fileMeta;
     }
 
-    protected FileMeta replyUploadFileMeta(PrintStream printStream, BufferedReader bufferedReader) throws IOException {
-        Map<String, String> all = slavesCache.getAll();
+    protected FileMeta replyUploadFileMeta(PrintStream printStream, BufferedReader bufferedReader) throws IOException, NoSuchFieldException, IllegalAccessException {
         // 2.校验握手正常，返回，'ok'
         printStream.println(OK_STR);
 
@@ -174,38 +174,49 @@ public class TrackerServerWorker {
         FileMeta receivedFileMeta = JSONObject.parseObject(fileMetaStr, FileMeta.class);
 
         // 4.返回服务器，存储路径，文件id等信息
-        String[] servers = all.keySet().toArray(new String[0]);
-        int length = servers.length;
-        Random random = new Random();
-        int storageServerIndex = random.nextInt(length);
-        int backupServerIndex;
-        if (length == 1) {
-            backupServerIndex = storageServerIndex;
-        } else {
-            while (true) {
-                int anInt = random.nextInt(length);
-                if (anInt != storageServerIndex) {
-                    backupServerIndex = anInt;
-                    break;
-                }
-            }
-        }
         String name = receivedFileMeta.getName();
         FileMeta result = FileMeta.builder()
                 .id(UUID.randomUUID().toString().replaceAll("-", ""))
-                // TODO 调度算法
-                .backupServerHost(servers[backupServerIndex])
-                .backupServerPort(9991)
-                .storageServerHost(servers[storageServerIndex])
-                .storageServerPort(9991)
                 .name(name)
                 .size(receivedFileMeta.getSize())
                 .path(FileUtils.getSaveFullPath("/", name))
                 .build();
+
+        getServers(receivedFileMeta, result);
+
+
         FileMetaEntity fileMetaEntity = new FileMetaEntity();
         BeanUtils.copyProperties(result, fileMetaEntity);
         fileMetaService.save(fileMetaEntity);
         return result;
 
+    }
+
+    protected void getServers(FileMeta receivedFileMeta, FileMeta result) throws NoSuchFieldException, IllegalAccessException {
+        Set<Integer> storageSet = new HashSet<>();
+        Map<String, HealthMessage> slaves = slavesCache.getAll();
+        List<Map.Entry<String, HealthMessage>> entries = new ArrayList<>(slaves.entrySet());
+        int length = entries.size();
+        // 副本数量不能大于存储节点数量
+        Integer fileReplicationCount = this.fileReplicationCount;
+        if (receivedFileMeta.getFileReplicationCount() != null && receivedFileMeta.getFileReplicationCount() > 0) {
+            fileReplicationCount = receivedFileMeta.getFileReplicationCount();
+        }
+        fileReplicationCount = fileReplicationCount > length ? length : fileReplicationCount;
+        Random random = new Random();
+        while (storageSet.size() == fileReplicationCount) {
+            int anInt = random.nextInt(length);
+            storageSet.add(anInt);
+        }
+
+        int methodIndex = 1;
+        for (Integer integer : storageSet) {
+            Field storageServerHostField = FileMeta.class.getDeclaredField("storageServerHost" + methodIndex++);
+            Field storageServerPortField = FileMeta.class.getDeclaredField("storageServerPort" + methodIndex++);
+            storageServerHostField.setAccessible(true);
+            storageServerPortField.setAccessible(true);
+            storageServerHostField.set(result, entries.get(integer).getKey());
+            storageServerHostField.setInt(result, entries.get(integer).getValue().getWorkerPort());
+        }
     }
 }

@@ -1,7 +1,8 @@
 package com.avocado.slave.service.upload;
 
 import com.alibaba.fastjson.JSONObject;
-import com.avocado.client.StorageServerClient;
+import com.avocado.client.SocketClient;
+import com.avocado.client.StorageServerBackupClient;
 import com.avocado.common.constants.Constants;
 import com.avocado.common.dto.file.FileMeta;
 import com.avocado.common.utils.*;
@@ -35,11 +36,19 @@ import static com.avocado.common.constants.Constants.BUFFER_LENGTH;
 @Component
 public class StorageWorker {
 
+    private static final boolean DEBUG_ENABLED = log.isDebugEnabled();
     @Setter
     private volatile boolean flag = true;
     private String fileSavePath;
     private String fileBakPath;
-    private static final boolean DEBUG_ENABLED = log.isDebugEnabled();
+    private ThreadPoolExecutor pool;
+
+    public int getConnectionCount() {
+        if (pool==null) {
+            return 0;
+        }
+        return pool.getActiveCount();
+    }
 
     @Value("${file-save.path}")
     public void setFileSavePath(String fileSavePath) {
@@ -65,7 +74,7 @@ public class StorageWorker {
                 .setNameFormat("upload-pool-%d").build();
 
         //Common Thread Pool
-        ThreadPoolExecutor pool = new ThreadPoolExecutor(5, 200,
+        pool = new ThreadPoolExecutor(5, 200,
                 0L, TimeUnit.MILLISECONDS,
                 new LinkedBlockingQueue<>(1024), namedThreadFactory, new ThreadPoolExecutor.AbortPolicy());
 
@@ -196,8 +205,7 @@ public class StorageWorker {
     }
 
     protected void copyAndBack(InputStream inputStream, FileMeta fileMeta, OutputStream fileOutputStream, MessageDigest complete) throws IOException {
-        StorageServerClient storageServerClient = new StorageServerClient(
-                fileMeta.getBackupServerHost(), fileMeta.getBackupServerPort()) {
+        StorageServerBackupClient storageServerClient = new StorageServerBackupClient(fileMeta) {
             @Override
             protected void copyIn(InputStream inputStream) throws IOException {
                 byte[] buffer = new byte[BUFFER_LENGTH];
@@ -206,7 +214,10 @@ public class StorageWorker {
                 final Long size = fileMeta.getSize();
                 for (int i = 0, read; i < size; i += read) {
                     read = inputStream.read(buffer, 0, size - i < BUFFER_LENGTH ? (int) (size - i) : BUFFER_LENGTH);
-                    socketOutputStream.write(buffer, 0, read);
+                    // 多个备份同时写出
+                    for (SocketClient client : socketClients) {
+                        client.getSocketOutputStream().write(buffer, 0, read);
+                    }
                     fileOutputStream.write(buffer, 0, read);
                     // 计算md5
                     complete.update(buffer, 0, read);
@@ -214,7 +225,7 @@ public class StorageWorker {
                 socketOutputStream.flush();
             }
         };
-        storageServerClient.backup(fileMeta, inputStream);
+        storageServerClient.backup(inputStream);
         storageServerClient.close();
     }
 
